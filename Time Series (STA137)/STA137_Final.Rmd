@@ -1,0 +1,208 @@
+---
+font.size = 10pt
+---
+
+### Appendix: Diagnostic Plots and R Code
+*Audrey Chu*
+
+```{r include = FALSE}
+library(MASS)
+library(car)
+library(forecast)
+library(astsa)
+source('~/Documents/3rd Year/STA137/trndseas.R')
+source('~/Documents/3rd Year/STA137/aicc.R')
+```
+
+
+##### Original Data
+```{r, fig.align="center", fig.height=3, fig.width=6}
+time = 1:384
+y = read.table("~/Documents/3rd Year/STA137/EnergyConsumption.txt", row.names=NULL)[,3]
+plot(time, y, type='l', main = "Figure 1
+     U.S. Residential Sector Petroleum Consumption", ylab="Trillion BTU", xlab="Month and Year")
+model = lm(y~time)
+summary(model)
+```
+```{r, fig.width=4, fig.height=3, fig.align="center"}
+plot(1:12, y[1:12], type='l', main="Figure 1.1
+     Petroleum Consumption for 1984 Year", ylab="Trillion BTU", xlab="Months")
+points(6, y[6], col='blue', pch=18)
+points(10, y[10], col='blue', pch=18)
+```
+
+##### Box-Cox Transformation
+<center> Figure 2.0 </center>
+```{r, fig.align="center", fig.heigh=4, }
+par(mfrow=c(2,2))
+plot.ts(y^(-1),ylab=expression(paste("1/",Y[t],")")), main=expression(paste("1/(",Y[t],")")))
+plot.ts(y^.5,ylab=expression(paste("sqrt(",Y[t],")")), main=expression(paste("Plot of Sqrt(",Y[t],")")))
+plot.ts(y^-.5,ylab=expression(paste("1/sqrt(",Y[t],")")), main=expression(paste("Plot of 1/sqrt(",Y[t],")")))
+plot.ts(log(y),ylab=expression(paste("ln(",Y[t],")")), main=expression(paste("Plot of ln(",Y[t],")"))) 
+```
+
+<center> Figure 2.1 </center>
+```{r, fig.align="center", fig.height=3}
+par(mfrow=c(1,2))
+boxcox(model)
+powerTransform(model)
+ytrans = y^(-1)
+modtrans = lm(ytrans~time)
+plot(time, ytrans, type = 'l', main = "Transformed Petroleum")
+```
+
+##### Trend and Seasonal Estimation
+<center> Figure 3.0 </center>
+```{r, fig.align="center", fig.heigh=4, fig.width=6}
+mod = trndseas(ytrans,degtrnd=2, seas=12)
+mod$rsq
+mod$lamopt
+m.fit = mod$trend
+s.fit = rep(mod$season,length.out=384)
+par(mfrow=c(2,2))
+plot.ts(ytrans ,ylab=expression(paste("",Ytrans[t],"")), main=expression(paste("Plot of ",Ytrans[t],"")))
+plot.ts(m.fit, ylab=expression(paste("",Ytrans[t],"")), main=expression(paste("Estimated Trend (",m[t],")")))
+plot.ts(s.fit,main=expression(paste("Estimated Seasonal Component (",s[t],")")))
+plot.ts(ytrans,ylab=expression(paste("",Ytrans[t],"")), main=expression(paste("",Ytrans[t]," with Seasonality and Trend")))
+points(mod$fit,type='l',col='red')
+mod$coef
+```
+
+##### Rough Estimation
+<center> Figure 4.0 </center>
+```{r, fig.align="center", fig.heigh=4, fig.width=6}
+x = ytrans - m.fit - s.fit
+par(mfrow=c(2,2))
+acf(x, main= "ACF Plot of Resid", ylab = "ACF", xlab ="Lag")
+pacf(x, main= "PACF Plot of Resid", ylab = "PACF", xlab = "Lag")
+hist(x, main= "Histogram of Resid", ylab = "Frequency", xlab = "Residual")
+qqnorm(x, main= "Normal Prob Plot of Resid",ylab="Residual"); qqline(x)
+```
+```{r, fig.width=4, fig.height=3, fig.align="center"}
+par(mfrow=c(1,1))
+plot.ts(x, main = "Figure 4.1
+        Plot of Residuals", ylab = "")
+Box.test(x,lag=10,'Ljung-Box')
+```
+
+Box-Ljung test shows a very low p-value, which can be
+intepreted as significant.  This means that the rough series is not
+independent.
+
+```{r, fig.width=4, fig.height=3, fig.align="center"}
+xpgrm = spec.pgram(x,log='no',plot=F)
+plot(xpgrm$freq,xpgrm$spec,type='l',xlab='Frequency',ylab='', main = 'Figure 5.0
+    Raw Periodogram')
+xpgrm5 = spec.pgram(x,spans=5, main = "Figure 5.1
+    Smoothed Periodogram (5 Month)")
+xpgrm7 = spec.pgram(x,spans=7, main="Figure 5.2
+    Smoothed Periodogram (7 Month)")
+xpgrm9 = spec.pgram(x,spans=9, main="Figure 5.3
+    Smoothed Periodogram (11 Month)")
+xpgrm11 = spec.pgram(x,spans=11, main="Figure 5.4
+    Smoothed Periodogram (11 Month)")
+```
+
+
+##### Preliminary ARMA(p, q) or ARIMA(p, d, q) Model
+```{r, fig.width=4, fig.height=3, fig.align="center"}
+fitARMA0 = arima(x, order=c(0,0,0))
+fitARMA14 = arima(x, order=c(1,0,4))
+fitARMA24 = arima(x, order=c(2,0,4))
+fitARMA34 = arima(x, order=c(3,0,4))
+fitARMA44 = arima(x, order=c(4,0,4))
+fitARMA54 = arima(x, order=c(5,0,4))
+fitARMA45 = arima(x, order=c(4,0,5))
+aicc(fitARMA0)
+aicc(fitARMA14)
+aicc(fitARMA24)
+aicc(fitARMA34)
+aicc(fitARMA44)
+aicc(fitARMA54)
+aicc(fitARMA45)
+auto = auto.arima(x, max.p = 8, max.q =8, max.d = 2); auto
+fitARIMA405 = arima(x, order=c(4, 0, 5))
+aicc(fitARIMA405)
+```
+```{r, fig.align="center", fig.height=3, fig.width=6}
+par(mfrow=c(1,1))
+res = fitARIMA405$res
+ts.plot(res, main = "Figure 6.0
+  Plot of Residual of ARIMA(4,0,5)")
+h=12
+n = 372
+fcast = predict(fitARIMA405,n.ahead=h)
+fc = fcast$pred
+upper = fc+qnorm(0.975)*fcast$se
+lower = fc-qnorm(0.975)*fcast$se
+polygon(x=c(n+1:h,n+h:1),y=c(upper,rev(lower)),col='lightblue',border=NA)
+lines(x=n+(1:h),y=fc,col='blue')
+```
+
+
+<center> Figure 7.0 </center>
+```{r, fig.align="center", fig.height=3}
+par(mfrow=c(1,2))
+acf(res, main = "ACF of ARIMA(4,0,5) Residual")
+pacf(res, main = "PACF of ARIMA(4,0,5) Residual")
+```
+
+<center> Figure 7.1 </center>
+```{r, fig.align="center", fig.height=3}
+par(mfrow=c(1,2))
+hist(res, main = "Histogram of Residual")
+qqnorm(res); qqline(res)
+```
+
+```{r, fig.align="center", fig.height=3, fig.width=6}
+par(mfrow=c(1,1))
+boxplot(res, main = "Figure 7.2
+        Boxplot of Residuals")
+Box.test(res,lag=10,'Ljung-Box')
+```
+
+##### Spectral Density
+```{r, fig.align="center", fig.heigh=4, fig.width=6}
+coef.ar = auto$coef[1:4]
+coef.ma = auto$coef[5:9]
+sigma2 = auto$sigma2
+```
+```{r, include=FALSE}
+mod1spec = arma.spec(ar=coef.ar,ma=coef.ma,var.noise=sigma2,log='no', main="ARMA(4,5) Spectrum and Smoothed Periodogram (7 month)", xlim=c(0,.2))
+```
+```{r, fig.align="center", fig.height=3, fig.width=6}
+mod1spec = arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no', main="Figure 8.0
+ARMA(4,5) Spectrum & Smoothed Periodogram (7 Month)", xlim=c(0.0,0.3), ylab="Spectrum", xlab="Frequency", ylim=c(0,15.0e-09))
+points(xpgrm7$freq, xpgrm7$spec, type='l', col='blue')
+legend(0.15, 13.0e-09, c("Smoothed", "Spectral Density"), lty=c(1,1), col=c('blue', 'black'))
+```
+
+##### Prediction
+```{r, fig.align="center", fig.height=4, fig.width=6}
+# Prediction of time 372 to 384
+y372 = y[1:372]
+n = 372
+h=12
+# Forecast the trend
+deg = 2
+coef = mod$coef[1:(deg+1)]
+time = (n+(1:h))/n; time
+predmat = matrix(rep(time,deg)^rep(1:deg,each=h),nrow=h,byrow=F)
+predmat = cbind(rep(1,h),predmat); predmat
+m.fc = predmat %*% coef
+# Forecast the seasonality
+s.fc = rep(mod$season,length.out=n+h)
+s.fc = s.fc[-(1:n)]
+# Forecast the rough part
+fcast = predict(fitARIMA405,n.ahead=h)
+x.fc = fcast$pred
+# Combine forecasts
+y.fc = ( m.fc + s.fc + x.fc)^(-1)
+y.fc
+par(mfrow=c(1,1))
+oldy=y[1:372]
+plot.ts(oldy,xlim=c(0,n+h), main = "Figure 9.0
+Petroleum Prediction from December 2014", ylab= "Trillion BTU", pch=1)
+points(x=n+1:h, y=y.fc, col='blue',type='l',pch=8)
+legend(0, 2800, c("Forecasted 2015"), lty=c(1,1), col=c('blue'))
+```
