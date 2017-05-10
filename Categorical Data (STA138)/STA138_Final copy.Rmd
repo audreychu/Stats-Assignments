@@ -1,0 +1,131 @@
+## *Audrey Chu*
+#### STA 138: 11/30/2016
+#### Take-Home Final Portion
+#### SID: 999138148
+
+------------------
+
+install.packages("MASS")
+```{r}
+library(MASS)
+```
+
+#### Problem 1: Car Accidents
+```{r}
+count= c(95,166,1279,8,7,65,31,34,506,2,5,51,11,17,186,4,5,54,
+    34,55,599,5,6,46,8,34,241,2,4,26,5,10,89,0,1,30,23,18,65,6,
+    5,11,22,17,118,18,9,68,5,2,23,5,6,33,9,10,83,6,2,11,23,26,
+    177,13,16,78,8,9,86,7,6,86)
+
+
+car=data.frame(expand.grid(size=c("Small","Compact","Standard"),
+              ejec=c("NotEjected","Ejected"),
+              sev=c("NotSev","ModSev","Sev"),
+              type=c("ColVech","ColOth","Roll","OthRoll")),
+              count)
+
+
+fit.size.ejec.sev.type=glm(count~size+ejec+sev+type,data=car,family=poisson)     
+fit.size.ejec.sev.type2way=update(fit.size.ejec.sev.type, .~.^2, data=car)
+fit.size.ejec.sev.type3way=update(fit.size.ejec.sev.type,.~.^3, data=car)
+
+
+#summary(fit.size.ejec.sev.type3way) 
+# All PW
+summary(fit.size.ejec.sev.type2way) 
+# All three way
+summary(fit.size.ejec.sev.type)    
+
+
+# indpt
+fit.size.ejec.sev.type1=lm(count~size+ejec+sev+type,data=car)
+fit.size.ejec.sev.type2way1=update(fit.size.ejec.sev.type1, .~.^2, data=car) 
+fit.size.ejec.sev.type3way1=update(fit.size.ejec.sev.type1,.~.^3, data=car)
+
+
+#summary(fit.size.ejec.sev.type1)
+#summary(fit.size.ejec.sev.type2way1)
+#summary(fit.size.ejec.sev.type3way1)
+
+####################
+### More Models ####
+####################
+fit= glm(count~size:ejec:sev+type:size+type:ejec+type:sev,family = poisson, data=car)
+#summary(fit)
+quad= lm(count~size:ejec:sev+type:size+type:ejec+type:sev, data=car)
+#summary(quad)
+
+fit2= glm(count~size:ejec:type+sev:size+sev:ejec+sev:type,family = poisson, data=car)
+summary(fit2)
+quad2= lm(count~size:ejec:type+sev:size+sev:ejec+sev:type, data=car)
+#summary(quad2)
+
+fit4= glm(count~ejec:sev:type+size:ejec+size:sev+size:type,family = poisson, data=car)
+summary(fit4)
+quad4= lm(count~ejec:sev:type+size:ejec+size:sev+size:type, data=car)
+#summary(quad4)
+
+```
+
+In fitting many loglinear models to the data obtained in a study of car accidents, a model was selected basied on AIC and other criteria.  Of the fitted models, the model cosnidering all pairwise associations.  This is the second model considered and it has the smalled AIC at 455.43.  The third model considred has the highed R-squared at .7222 and the lowest likelihood ratio or G-squared at 11.072.  The best model is thus the all pairwise associations model that considers the pair between accident type and size of car, ejection and severity, accident type and ejection, accident type and severity, ejection and severity, and finally severity and size, which is all in prediction of count.  This means that all not only all variables are significant in determining, but also the interactions between all of them.  There may be a better model; however, when tested up to three associations, model 2 is still the best. (Output/summary is not printed for all models due to length)
+
+
+#### Problem 6.8: Surgery
+```{r}
+problem68 = read.csv("~/Documents/problem68.csv")
+D = problem68$D
+TY = problem68$T
+Y = problem68$Y
+
+data=data.frame(D,TY,Y)
+model=glm(Y~D+TY, data=data, family=binomial)               # AIC: 36.14
+summary(model)
+
+model1=glm(Y~D+TY + D:TY, data=data, family=binomial)       # AIC: 36.32
+model2=glm(Y~D, data=data, family=binomial)                 # AIC: 37.65
+model3=glm(Y~TY, data=data, family=binomial)                # AIC: 46.58
+```
+
+Looking at all the possible models including single variable and interaction, it seems that the 'model' is the best fit accordingly to the AIC.  This gives us the coefficient for D is 0.06868 and the coefficient for TY is -1.65895 while the intercept is -1.41732.  Taking the exponential of of 0.069 is 1.07.  This means that there is a 7% increase in the odds of being a patient with anesthesia who experiences a sore threat on wakin up.  Patients who use laryngeal mask airway and survived longer surgery are more likely to experience a sore throat.  
+
+
+#### Problem 8: 9.8 - British Doctors
+*(a)*  Table 9.10 shows that location has a odds ratio of 2.13 with injury and that  injury has a odds ratio of 0.58 with gender.  This means that the odds odds of no injury for urban location is 2.13 times the odds for rural location, meaning that there is a highly likelihood of more injuries in rural locations.  This means that for the log linear model of (GI, GL, GS, IL, IS, LS), the most likely accident case for injury is females not wearing seat belts in rural locations.
+
+*(b)*  Fit model (GLS, GI, IL, IS).  Use model parameter estimates, show that the fitted IS condtional odds ratio equals 0.44, and show that the for each injury level, the estimated conditional LS odds ratio is 1.17 for (G=female) and 1.03 for (G=male)
+
+```{r}
+auto=data.frame(expand.grid(
+          seat=c("No","Yes"),
+          loc=c("Urban","Rural"),
+          gen=c("Female","Male"),
+          inj=c("No","Yes")),
+          count=c(7287,11587,3246,6134,10381,10969,6123, 6693,996,759,973, 757, 812, 380, 1084, 513))
+
+fit=glm(count~gen+inj+loc+seat+gen:inj+gen:loc+gen:seat+inj:loc+inj:seat+loc:seat,data=auto,family=poisson)
+summary(fit)
+
+exp(coef(fit)["injYes:seatYes"])
+exp(coef(fit))
+
+fit=glm(count~gen+inj+loc+seat+gen:loc:seat+gen:inj+inj:loc+inj:seat,data=auto,family=poisson)
+summary(fit)
+exp(coef(fit))
+
+```
+
+This model is the fit (GLS, GI, IL, IS) is as stated above.  We know that the IS conditional odds ratio is 0.  It shows that the fitted IS conditional odds ratio is equal to 0.4417119 and that for each injury level, the estimated conditonal LS odds ratio is 1.16668 for (G=female) and 1.029361 for (G=male).
+
+*(c)*  Two stage model: first is logistic model with S as the response for three-way GLS table. Second is a logistic model with these three var as predictor for I in the 4-way table. Explain why this composite model is sensible, fit models, interpret.
+
+```{r}
+first = glm(seat~loc+gen+loc:gen, data=auto, family=binomial(link=logit))
+second = glm(inj~gen+loc+seat+seat:loc+seat:gen+loc:gen, data=auto, family=binomial(link=logit))
+```
+
+
+
+
+
+
+  
